@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Humphrey | BDA AI Agent Services</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0f0f12;
+    color: #e8e6df;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 680px;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: #16161a;
+    border-left: 1px solid #2a2a32;
+    border-right: 1px solid #2a2a32;
+  }
+
+  header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2a32;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .avatar {
+    width: 36px; height: 36px;
+    background: #1d3f6e;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .agent-info h1 { font-size: 15px; font-weight: 500; color: #e8e6df; }
+  .agent-info p  { font-size: 12px; color: #888; margin-top: 1px; }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    background: #2ecc71;
+    border-radius: 50%;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg {
+    max-width: 80%;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+
+  .msg.agent {
+    align-self: flex-start;
+    background: #1e1e26;
+    border: 1px solid #2a2a32;
+    border-radius: 4px 16px 16px 16px;
+    padding: 12px 16px;
+    color: #e0ddd6;
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: #1a3a6e;
+    border-radius: 16px 4px 16px 16px;
+    padding: 12px 16px;
+    color: #ddeeff;
+  }
+
+  .msg.thinking {
+    align-self: flex-start;
+    background: #1e1e26;
+    border: 1px solid #2a2a32;
+    border-radius: 4px 16px 16px 16px;
+    padding: 12px 16px;
+    color: #555;
+    font-style: italic;
+    font-size: 13px;
+  }
+
+  .input-area {
+    padding: 16px 20px;
+    border-top: 1px solid #2a2a32;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  textarea {
+    flex: 1;
+    background: #1e1e26;
+    border: 1px solid #2a2a32;
+    border-radius: 12px;
+    color: #e8e6df;
+    font-size: 14px;
+    font-family: inherit;
+    padding: 10px 14px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    max-height: 120px;
+    min-height: 44px;
+  }
+
+  textarea:focus { border-color: #3a5a9e; }
+  textarea::placeholder { color: #444; }
+
+  button {
+    background: #1a3a6e;
+    border: none;
+    border-radius: 12px;
+    width: 44px; height: 44px;
+    cursor: pointer;
+    color: #aaccff;
+    font-size: 18px;
+    flex-shrink: 0;
+    align-self: flex-end;
+    transition: background 0.15s;
+  }
+
+  button:hover { background: #234a8e; }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  footer {
+    text-align: center;
+    font-size: 11px;
+    color: #333;
+    padding: 8px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="avatar">H</div>
+    <div class="agent-info">
+      <h1>Humphrey</h1>
+      <p>BDA AI Agent Services · Kadikoy Limited</p>
+    </div>
+    <div class="status-dot"></div>
+  </header>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="input-area">
+    <textarea
+      id="input"
+      placeholder="输入消息… / Type a message…"
+      rows="1"
+      onkeydown="handleKey(event)"
+      oninput="autoResize(this)"
+    ></textarea>
+    <button id="send-btn" onclick="sendMessage()">↑</button>
+  </div>
+
+  <footer>Humphrey · BDA AI Agent Services · bdaaiagentservices.net</footer>
+</div>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('input');
+  const sendBtn    = document.getElementById('send-btn');
+
+  const sessionId = 'sess_' + Math.random().toString(36).slice(2, 10);
+  let history = [];
+  let thinking = false;
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function appendMsg(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || thinking) return;
+
+    appendMsg('user', text);
+    history.push({ role: 'user', content: text });
+    inputEl.value = '';
+    autoResize(inputEl);
+
+    thinking = true;
+    sendBtn.disabled = true;
+    const thinkingEl = appendMsg('thinking', 'Humphrey is thinking…');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history, sessionId }),
+      });
+
+      const data = await res.json();
+      thinkingEl.remove();
+
+      appendMsg('agent', data.reply);
+      history.push({ role: 'assistant', content: data.reply });
+
+      if (data.leadCaptured) {
+        const notice = appendMsg('thinking', '✓ Your details have been passed to BC at BDA.');
+        notice.style.color = '#2ecc71';
+        notice.style.fontStyle = 'normal';
+      }
+    } catch (err) {
+      thinkingEl.textContent = 'Connection error — please try again.';
+    } finally {
+      thinking = false;
+      sendBtn.disabled = false;
+    }
+  }
+
+  // Humphrey opens the conversation
+  window.addEventListener('load', async () => {
+    thinking = true;
+    sendBtn.disabled = true;
+    const thinkingEl = appendMsg('thinking', 'Humphrey is connecting…');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: '__OPEN__' }],
+          sessionId,
+        }),
+      });
+      const data = await res.json();
+      thinkingEl.remove();
+      appendMsg('agent', data.reply);
+      history.push({ role: 'assistant', content: data.reply });
+    } catch {
+      thinkingEl.textContent = 'Unable to connect. Please refresh.';
+    } finally {
+      thinking = false;
+      sendBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
