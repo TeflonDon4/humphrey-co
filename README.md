@@ -1,7 +1,7 @@
 # Humphrey — BDA AI Agent Services Intake Agent
 
 Humphrey is the intake agent for BDA AI Agent Services, part of the Kadikoy Limited group.
-He operates in Mandarin (default) and English, qualifies professional leads, and sends a morning digest via Resend.
+He operates in English, qualifies professional leads, and sends a morning digest via Resend.
 
 ## Files
 
